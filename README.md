@@ -2,14 +2,12 @@
 
 -  **Auto Run Node Multiple Accounts**
 
-   # Prerequisites
-
  ## Installation
 
 1. Clone the repository:
     ```sh
-    git clone https://github.com/Zlkcyber/LedgeBot.git
-    cd LedgeBot
+    git clone https://github.com/HackerboyKishan/Layeredge
+    cd Layeredge
     ```
 
 2. Install the required dependencies:
