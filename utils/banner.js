@@ -1,33 +1,17 @@
-// banner.js
+const banner = `
+             ██╗  ██╗
+             ██║ ██╔╝
+             █████╔╝ 
+             ██╔═██╗ 
+             ██║  ██╗
+             ═════╝╚ 
+    === Running LayerEdge CLI Version ===
+** ====================================== **
+*    This script is created for free use   *
+*  Do not sell or distribute it for profit *
+** ====================================== **
 
-// Function to add red and green color
-const red = '\x1b[31m';
-const green = '\x1b[32m';
-const reset = '\x1b[0m';
 
-console.clear();  // Clear the screen
-
-// Styled text with colors
-console.log(`${green}
-=======================================
-=======================================
-        Hacking [${green}Hacker Boy K${red}]       
-  -----------------------------------------
-      .-"``""--.._                             
-    .'          \`-.`-.                         
-   /   _..---""`-._.-'""-.                    
-  |   /            .     \                  
-  |  ;       .    _/     . `.                
-   \  |      .'   |    .-'    `-.            
-    ; |   .-'      ;  .'         `-.        
-   .-+-------+    _|-'        .-'  `.      
-  /     /    |    |      _.-'       `.     
- |     |     |    |    .'           |    
-  .     \     \    \   \        .-'|  
-   `-.   \    `.  |    \        .-+--'
-      `-. `-.   `-.     \   .-'  /     
-         `-.  `-.  `-.   `.  `--'       
-            `-.    `-.   \          
-               `-.      `-.
-=======================================
-${reset}`);
+* Author: Hacker Boy K    
+                 `
+export default banner;
