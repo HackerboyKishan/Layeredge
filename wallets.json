@@ -1,0 +1,14 @@
+[
+    {
+        "address": "YOUR ADDRESS 1",
+        "privateKey": "your private key"
+    },
+    {
+        "address": "YOUR ADDRESS 2",
+        "privateKey": "your private key"
+    },
+    {
+        "address": "YOUR ADDRESS 3",
+        "privateKey": "your private key"
+    }
+]
