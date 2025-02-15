@@ -1,11 +1,11 @@
-import fs from 'fs/promises';
-import log from './utils/logger.js';
-import { readFiles, delay } from './utils/helper.js';
+
+import fs from 'fs/promises'
+import log from './utils/logger.js'
+import { readFiles, delay } from './utils/helper.js'
 import banner from './utils/banner.js';
 import LayerEdge from './utils/socket.js';
-import { signMessage } from './utils/signature.js'; // Assuming you have a signMessage utility to handle the signing process
 
-const WALLETS_PATH = 'wallets.json';  // change to walletsRef.json if you want to run ref wallets
+const WALLETS_PATH = 'wallets.json'  // change to walletsRef.json if you want to running ref wallets
 
 // Function to read wallets 
 async function readWallets() {
@@ -23,16 +23,6 @@ async function readWallets() {
     }
 }
 
-// Function to create a signature for node activation and claiming points
-async function signNodeRequest(wallet, action, timestamp) {
-    const message = action === 'claimPoints' 
-        ? `Claiming daily node point for ${wallet.address} at ${timestamp}`
-        : `Node activation request for ${wallet.address} at ${timestamp}`;
-
-    const signature = await signMessage(wallet.privateKey, message);
-    return signature;
-}
-
 async function run() {
     log.info(banner);
     await delay(3);
@@ -48,43 +38,31 @@ async function run() {
     log.info('Starting run Program with all Wallets:', wallets.length);
 
     while (true) {
-        // Create an array of promises for processing all wallets concurrently
-        const walletPromises = wallets.map(async (wallet, index) => {
-            const proxy = proxies[index % proxies.length] || null;
-            const { address, privateKey } = wallet;
-            const timestamp = Date.now();
+        for (let i = 0; i < wallets.length; i++) {
+            const wallet = wallets[i];
+            const proxy = proxies[i % proxies.length] || null;
+            const { address, privateKey } = wallet
             try {
                 const socket = new LayerEdge(proxy, privateKey);
                 log.info(`Processing Wallet Address: ${address} with proxy:`, proxy);
                 log.info(`Checking Node Status for: ${address}`);
-                await socket.checkIN();
+                await socket.checkIN()
                 const isRunning = await socket.checkNodeStatus();
 
                 if (isRunning) {
                     log.info(`Wallet ${address} is running - trying to claim node points...`);
-                    const claimSignature = await signNodeRequest(wallet, 'claimPoints', timestamp);
-                    log.info(`Signature for claiming node points: ${claimSignature}`);
                     await socket.stopNode();
-                    // Assume the socket handles the claim signature (you might need to send it)
                 }
                 log.info(`Trying to reconnect node for Wallet: ${address}`);
                 await socket.connectNode();
 
                 log.info(`Checking Node Points for Wallet: ${address}`);
-                const activationSignature = await signNodeRequest(wallet, 'activateNode', timestamp);
-                log.info(`Signature for node activation request: ${activationSignature}`);
                 await socket.checkNodePoints();
-                // Here, you might send the activationSignature for further processing if necessary
-
             } catch (error) {
-                log.error(`Error Processing wallet ${address}:`, error.message);
+                log.error(`Error Processing wallet:`, error.message);
             }
-        });
-
-        // Run all wallet processing concurrently
-        await Promise.all(walletPromises);
-
-        log.warn(`All Wallets have been processed, waiting 1 hour before next run...`);
+        }
+        log.warn(`All Wallets have been processed, waiting 1 hours before next run...`);
         await delay(60 * 60);
     }
 }
