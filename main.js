@@ -3,6 +3,7 @@ import log from './utils/logger.js';
 import { readFiles, delay } from './utils/helper.js';
 import banner from './utils/banner.js';
 import LayerEdge from './utils/socket.js';
+import { signMessage } from './utils/signature.js'; // Assuming you have a signMessage utility to handle the signing process
 
 const WALLETS_PATH = 'wallets.json';  // change to walletsRef.json if you want to run ref wallets
 
@@ -20,6 +21,16 @@ async function readWallets() {
         }
         throw err;
     }
+}
+
+// Function to create a signature for node activation and claiming points
+async function signNodeRequest(wallet, action, timestamp) {
+    const message = action === 'claimPoints' 
+        ? `Claiming daily node point for ${wallet.address} at ${timestamp}`
+        : `Node activation request for ${wallet.address} at ${timestamp}`;
+
+    const signature = await signMessage(wallet.privateKey, message);
+    return signature;
 }
 
 async function run() {
@@ -41,6 +52,7 @@ async function run() {
         const walletPromises = wallets.map(async (wallet, index) => {
             const proxy = proxies[index % proxies.length] || null;
             const { address, privateKey } = wallet;
+            const timestamp = Date.now();
             try {
                 const socket = new LayerEdge(proxy, privateKey);
                 log.info(`Processing Wallet Address: ${address} with proxy:`, proxy);
@@ -50,13 +62,20 @@ async function run() {
 
                 if (isRunning) {
                     log.info(`Wallet ${address} is running - trying to claim node points...`);
+                    const claimSignature = await signNodeRequest(wallet, 'claimPoints', timestamp);
+                    log.info(`Signature for claiming node points: ${claimSignature}`);
                     await socket.stopNode();
+                    // Assume the socket handles the claim signature (you might need to send it)
                 }
                 log.info(`Trying to reconnect node for Wallet: ${address}`);
                 await socket.connectNode();
 
                 log.info(`Checking Node Points for Wallet: ${address}`);
+                const activationSignature = await signNodeRequest(wallet, 'activateNode', timestamp);
+                log.info(`Signature for node activation request: ${activationSignature}`);
                 await socket.checkNodePoints();
+                // Here, you might send the activationSignature for further processing if necessary
+
             } catch (error) {
                 log.error(`Error Processing wallet ${address}:`, error.message);
             }
@@ -64,7 +83,7 @@ async function run() {
 
         // Run all wallet processing concurrently
         await Promise.all(walletPromises);
-        
+
         log.warn(`All Wallets have been processed, waiting 1 hour before next run...`);
         await delay(60 * 60);
     }
