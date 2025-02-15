@@ -22,7 +22,7 @@ async function readWallets() {
 }
 
 // Concurrency limit
-const CONCURRENCY_LIMIT = 20; // Max number of concurrent tasks
+const CONCURRENCY_LIMIT = 100; // Max number of concurrent tasks
 
 async function processWallet(wallet, proxy) {
     const { address, privateKey } = wallet;
