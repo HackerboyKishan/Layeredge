@@ -476,7 +476,7 @@ async function run() {
             await Promise.all(walletPromises);
 
             logger.warn(`Batch ${chunkIndex + 1} complete`, `Waiting 1 hour before next batch...`);
-            await delay(60 * 60); // Delay between batches
+            await delay(0 * 0); // Delay between batches
         }
 
         logger.info('All wallets processed successfully!');
