@@ -212,13 +212,113 @@ class LayerEdgeConnection {
         return await RequestHandler.makeRequest(finalConfig, this.retryCount);
     }
 
+    async checkInvite() {
+        const inviteData = {
+            invite_code: this.refCode,
+        };
+
+        const response = await this.makeRequest(
+            "post",
+            "https://referralapi.layeredge.io/api/referral/verify-referral-code",
+            { data: inviteData }
+        );
+
+        if (response && response.data && response.data.data.valid === true) {
+            logger.info("Invite Code Valid", response.data);
+            return true;
+        } else {
+            logger.error("Failed to check invite");
+            return false;
+        }
+    }
+
+    async registerWallet() {
+        const registerData = {
+            walletAddress: this.wallet.address,
+        };
+
+        const response = await this.makeRequest(
+            "post",
+            `https://referralapi.layeredge.io/api/referral/register-wallet/${this.refCode}`,
+            { data: registerData }
+        );
+
+        if (response && response.data) {
+            logger.info("Wallet successfully registered", response.data);
+            return true;
+        } else {
+            logger.error("Failed To Register wallets", "error");
+            return false;
+        }
+    }
+
+    async connectNode() {
+        const timestamp = Date.now();
+        const message = `Node activation request for ${this.wallet.address} at ${timestamp}`;
+        const sign = await this.wallet.signMessage(message);
+
+        const dataSign = {
+            sign: sign,
+            timestamp: timestamp,
+        };
+
+        const config = {
+            data: dataSign,
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        };
+
+        const response = await this.makeRequest(
+            "post",
+            `https://referralapi.layeredge.io/api/light-node/node-action/${this.wallet.address}/start`,
+            config
+        );
+
+        if (response && response.data && response.data.message === "node action executed successfully") {
+            logger.info("Connected Node Successfully", response.data);
+            return true;
+        } else {
+            logger.info("Failed to connect Node");
+            return false;
+        }
+    }
+
+    async stopNode() {
+        const timestamp = Date.now();
+        const message = `Node deactivation request for ${this.wallet.address} at ${timestamp}`;
+        const sign = await this.wallet.signMessage(message);
+
+        const dataSign = {
+            sign: sign,
+            timestamp: timestamp,
+        };
+
+        const response = await this.makeRequest(
+            "post",
+            `https://referralapi.layeredge.io/api/light-node/node-action/${this.wallet.address}/stop`,
+            { data: dataSign }
+        );
+
+        if (response && response.data) {
+            logger.info("Stop and Claim Points Result:", response.data);
+            return true;
+        } else {
+            logger.error("Failed to Stopping Node and claiming points");
+            return false;
+        }
+    }
+
     async dailyCheckIn() {
         try {
             const timestamp = Date.now();
             const message = `I am claiming my daily node point for ${this.wallet.address} at ${timestamp}`;
             const sign = await this.wallet.signMessage(message);
             const dataSign = { sign, timestamp, walletAddress: this.wallet.address };
-            const config = { data: dataSign, headers: { 'Content-Type': 'application/json' } };
+            const config = {
+                data: dataSign,
+                headers: { 'Content-Type': 'application/json' }
+            };
 
             const response = await this.makeRequest(
                 "post",
@@ -271,107 +371,171 @@ class LayerEdgeConnection {
             logger.info(`${this.wallet.address} Total Points:`, response.data.data?.nodePoints || 0);
             return true;
         } else {
-            logger.error("Failed to check node points.");
+            logger.error("Failed to check Total Points..");
+            return false;
+        }
+    }
+
+    async submitProof() {
+        try {
+            const timestamp = new Date().toISOString();
+            const message = `I am submitting a proof for LayerEdge at ${timestamp}`;
+            const signature = await this.wallet.signMessage(message);
+            
+            const proofData = {
+                proof: "GmEdgesss",
+                signature: signature,
+                message: message,
+                address: this.wallet.address
+            };
+
+            const config = {
+                data: proofData,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': '*/*'
+                }
+            };
+
+            const response = await this.makeRequest(
+                "post",
+                "https://dashboard.layeredge.io/api/send-proof",
+                config
+            );
+
+            if (response && response.data && response.data.success) {
+                logger.success("Proof submitted successfully", response.data.message);
+                return true;
+            } else {
+                logger.error("Failed to submit proof", response?.data);
+                return false;
+            }
+        } catch (error) {
+            logger.error("Error submitting proof", "", error);
             return false;
         }
     }
 
     async claimProofSubmissionPoints() {
         try {
+            const timestamp = Date.now();
+            const message = `I am claiming my proof submission node points for ${this.wallet.address} at ${timestamp}`;
+            const sign = await this.wallet.signMessage(message);
+
+            const claimData = {
+                walletAddress: this.wallet.address,
+                timestamp: timestamp,
+                sign: sign
+            };
+
+            const config = {
+                data: claimData,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json, text/plain, */*'
+                }
+            };
+
             const response = await this.makeRequest(
-                "get",
-                `https://referralapi.layeredge.io/api/light-node/claim-light-node-points/${this.wallet.address}`
+                "post",
+                "https://referralapi.layeredge.io/api/task/proof-submission",
+                config
             );
 
-            if (response && response.data.status === 200) {
-                logger.info(`${this.wallet.address} Claimed Proof Submission Points`);
+            if (response && response.data && response.data.message === "proof submission task completed successfully") {
+                logger.success("Proof submission points claimed successfully");
                 return true;
             } else {
-                logger.warn(`Failed to claim proof submission points`);
+                logger.error("Failed to claim proof submission points", response?.data);
                 return false;
             }
         } catch (error) {
-            logger.error("Failed to claim proof submission points", error);
+            logger.error("Error claiming proof submission points", "", error);
             return false;
         }
     }
 
-    async connectNode() {
+    async claimLightNodePoints() {
         try {
+            const timestamp = Date.now();
+            const message = `I am claiming my light node run task node points for ${this.wallet.address} at ${timestamp}`;
+            const sign = await this.wallet.signMessage(message);
+
+            const claimData = {
+                walletAddress: this.wallet.address,
+                timestamp: timestamp,
+                sign: sign
+            };
+
+            const config = {
+                data: claimData,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json, text/plain, */*'
+                }
+            };
+
             const response = await this.makeRequest(
                 "post",
-                `https://referralapi.layeredge.io/api/light-node/start-node/${this.wallet.address}`
+                "https://referralapi.layeredge.io/api/task/node-points",
+                config
             );
 
-            if (response && response.data.status === 200) {
-                logger.info(`${this.wallet.address} Connected to Node`);
+            if (response && response.data && response.data.message === "node points task completed successfully") {
+                logger.success("Light node points claimed successfully");
                 return true;
             } else {
-                logger.warn(`Failed to connect node`);
+                logger.error("Failed to claim light node points", response?.data);
                 return false;
             }
         } catch (error) {
-            logger.error("Failed to connect node", error);
-            return false;
-        }
-    }
-
-    async stopNode() {
-        try {
-            const response = await this.makeRequest(
-                "post",
-                `https://referralapi.layeredge.io/api/light-node/stop-node/${this.wallet.address}`
-            );
-
-            if (response && response.data.status === 200) {
-                logger.info(`${this.wallet.address} Stopped Node`);
-                return true;
-            } else {
-                logger.warn(`Failed to stop node`);
-                return false;
-            }
-        } catch (error) {
-            logger.error("Failed to stop node", error);
+            logger.error("Error claiming light node points", "", error);
             return false;
         }
     }
 }
 
+// Main Application
 async function readWallets() {
-    const walletFile = await readFile('wallets.txt');
-    return walletFile.map(walletStr => {
-        const [address, privateKey] = walletStr.split(',');
-        return { address, privateKey };
-    });
+    try {
+        await fs.access("wallets.json");
+        const data = await fs.readFile("wallets.json", "utf-8");
+        return JSON.parse(data);
+    } catch (err) {
+        if (err.code === 'ENOENT') {
+            logger.info("No wallets found in wallets.json");
+            return [];
+        }
+        throw err;
+    }
 }
 
 async function run() {
     console.log(banner);
     logger.info('Starting Layer Edge Auto Bot', 'Initializing...');
-
+    
     try {
         const proxies = await readFile('proxy.txt');
         let wallets = await readWallets();
-
+        
         if (proxies.length === 0) {
             logger.warn('No Proxies', 'Running without proxy support');
         }
-
+        
         if (wallets.length === 0) {
             throw new Error('No wallets configured');
         }
 
         logger.info('Configuration loaded', `Wallets: ${wallets.length}, Proxies: ${proxies.length}`);
 
-        const batchSize = 100;
-
-        const processWalletsInBatch = async (walletsBatch) => {
-            const promises = walletsBatch.map(async (wallet, index) => {
-                const proxy = proxies[index % proxies.length] || null;
+        while (true) {
+            for (let i = 0; i < wallets.length; i++) {
+                const wallet = wallets[i];
+                const proxy = proxies[i % proxies.length] || null;
                 const { address, privateKey } = wallet;
-
+                
                 try {
-                    logger.verbose(`Processing wallet ${index + 1}/${wallets.length}`, address);
+                    logger.verbose(`Processing wallet ${i + 1}/${wallets.length}`, address);
                     const socket = new LayerEdgeConnection(proxy, privateKey);
                     
                     logger.progress(address, 'Wallet Processing Started', 'start');
@@ -409,22 +573,11 @@ async function run() {
                     logger.progress(address, 'Wallet Processing Failed', 'failed');
                     await delay(5);
                 }
-            });
-
-            await Promise.all(promises);
-        };
-
-        while (true) {
-            for (let i = 0; i < wallets.length; i += batchSize) {
-                const walletBatch = wallets.slice(i, i + batchSize);
-                logger.info(`Processing batch ${Math.floor(i / batchSize) + 1}...`);
-                await processWalletsInBatch(walletBatch);
             }
-
+            
             logger.warn('Cycle Complete', 'Waiting 1 hour before next run...');
             await delay(60 * 60);
         }
-
     } catch (error) {
         logger.error('Fatal error occurred', '', error);
         process.exit(1);
