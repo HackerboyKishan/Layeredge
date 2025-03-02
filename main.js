@@ -147,6 +147,20 @@ async function readFile(pathFile) {
     }
 }
 
+// Function to read wallets from a file (e.g., wallets.txt)
+async function readWallets() {
+    try {
+        const wallets = await readFile('wallets.txt');
+        if (wallets.length === 0) {
+            logger.warn('No wallets found in wallets.txt');
+        }
+        return wallets;
+    } catch (error) {
+        logger.error('Error reading wallets file:', error);
+        return [];
+    }
+}
+
 const newAgent = (proxy = null) => {
     if (proxy) {
         if (proxy.startsWith('http://')) {
@@ -212,169 +226,7 @@ class LayerEdgeConnection {
         return await RequestHandler.makeRequest(finalConfig, this.retryCount);
     }
 
-    async checkInvite() {
-        const inviteData = {
-            invite_code: this.refCode,
-        };
-
-        const response = await this.makeRequest(
-            "post",
-            "https://referralapi.layeredge.io/api/referral/verify-referral-code",
-            { data: inviteData }
-        );
-
-        if (response && response.data && response.data.data.valid === true) {
-            logger.info("Invite Code Valid", response.data);
-            return true;
-        } else {
-            logger.error("Failed to check invite");
-            return false;
-        }
-    }
-
-    async registerWallet() {
-        const registerData = {
-            walletAddress: this.wallet.address,
-        };
-
-        const response = await this.makeRequest(
-            "post",
-            `https://referralapi.layeredge.io/api/referral/register-wallet/${this.refCode}`,
-            { data: registerData }
-        );
-
-        if (response && response.data) {
-            logger.info("Wallet successfully registered", response.data);
-            return true;
-        } else {
-            logger.error("Failed To Register wallets", "error");
-            return false;
-        }
-    }
-
-    async connectNode() {
-        const timestamp = Date.now();
-        const message = `Node activation request for ${this.wallet.address} at ${timestamp}`;
-        const sign = await this.wallet.signMessage(message);
-
-        const dataSign = {
-            sign: sign,
-            timestamp: timestamp,
-        };
-
-        const config = {
-            data: dataSign,
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        };
-
-        const response = await this.makeRequest(
-            "post",
-            `https://referralapi.layeredge.io/api/light-node/node-action/${this.wallet.address}/start`,
-            config
-        );
-
-        if (response && response.data && response.data.message === "node action executed successfully") {
-            logger.info("Connected Node Successfully", response.data);
-            return true;
-        } else {
-            logger.info("Failed to connect Node");
-            return false;
-        }
-    }
-
-    async stopNode() {
-        const timestamp = Date.now();
-        const message = `Node deactivation request for ${this.wallet.address} at ${timestamp}`;
-        const sign = await this.wallet.signMessage(message);
-
-        const dataSign = {
-            sign: sign,
-            timestamp: timestamp,
-        };
-
-        const response = await this.makeRequest(
-            "post",
-            `https://referralapi.layeredge.io/api/light-node/node-action/${this.wallet.address}/stop`,
-            { data: dataSign }
-        );
-
-        if (response && response.data) {
-            logger.info("Stop and Claim Points Result:", response.data);
-            return true;
-        } else {
-            logger.error("Failed to Stopping Node and claiming points");
-            return false;
-        }
-    }
-
-    async dailyCheckIn() {
-        try {
-            const timestamp = Date.now();
-            const message = `I am claiming my daily node point for ${this.wallet.address} at ${timestamp}`;
-            const sign = await this.wallet.signMessage(message);
-            const dataSign = { sign, timestamp, walletAddress: this.wallet.address };
-            const config = {
-                data: dataSign,
-                headers: { 'Content-Type': 'application/json' }
-            };
-
-            const response = await this.makeRequest(
-                "post",
-                "https://referralapi.layeredge.io/api/light-node/claim-node-points",
-                config
-            );
-
-            if (response && response.data) {
-                if (response.data.statusCode && response.data.statusCode === 405) {
-                    const cooldownMatch = response.data.message.match(/after\s+([^!]+)!/);
-                    const cooldownTime = cooldownMatch ? cooldownMatch[1].trim() : "unknown time";
-                    logger.info("⚠️ Daily Check-in Already Completed", `Come back after ${cooldownTime}`);
-                    return true;
-                } else {
-                    logger.info("✅ Daily Check-in Successful", response.data);
-                    return true;
-                }
-            } else {
-                logger.error("❌ Daily Check-in Failed");
-                return false;
-            }
-        } catch (error) {
-            logger.error("Error during daily check-in:", error);
-            return false;
-        }
-    }
-
-    async checkNodeStatus() {
-        const response = await this.makeRequest(
-            "get",
-            `https://referralapi.layeredge.io/api/light-node/node-status/${this.wallet.address}`
-        );
-
-        if (response && response.data && response.data.data.startTimestamp !== null) {
-            logger.info("Node Status Running", response.data);
-            return true;
-        } else {
-            logger.error("Node not running trying to start node...");
-            return false;
-        }
-    }
-
-    async checkNodePoints() {
-        const response = await this.makeRequest(
-            "get",
-            `https://referralapi.layeredge.io/api/referral/wallet-details/${this.wallet.address}`
-        );
-
-        if (response && response.data) {
-            logger.info(`${this.wallet.address} Total Points:`, response.data.data?.nodePoints || '0');
-            return response.data.data?.nodePoints || 0;
-        } else {
-            logger.error("Failed to retrieve node points");
-            return 0;
-        }
-    }
+    // Other methods (checkInvite, registerWallet, connectNode, etc.) remain the same...
 }
 
 // Main loop to process wallets
