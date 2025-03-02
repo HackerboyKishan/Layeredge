@@ -269,4 +269,24 @@ async function run() {
     }
 }
 
+// Define the `processWallet` function
+async function processWallet(wallet, proxy = null) {
+    try {
+        logger.info('Processing wallet', wallet);
+        
+        const connection = new LayerEdgeConnection(proxy, wallet);
+        
+        // Example operation: Check if the wallet has an invite
+        await connection.checkInvite(); // This should be implemented in the LayerEdgeConnection class
+
+        // Example operation: Register wallet
+        await connection.registerWallet(); // This should also be implemented in the LayerEdgeConnection class
+
+        // Other operations (like node connection) could also be handled here
+        logger.success(`Wallet processed successfully`, wallet);
+    } catch (error) {
+        logger.error('Error processing wallet', wallet, error);
+    }
+}
+
 run();
