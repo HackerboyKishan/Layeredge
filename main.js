@@ -8,7 +8,7 @@ import banner from './utils/banner.js';
 
 const logger = {
     verbose: true,
-
+    
     _formatTimestamp() {
         return chalk.gray(`[${new Date().toLocaleTimeString()}]`);
     },
@@ -27,7 +27,7 @@ const logger = {
 
     _formatError(error) {
         if (!error) return '';
-
+        
         let errorDetails = '';
         if (axios.isAxiosError(error)) {
             errorDetails = `
@@ -48,12 +48,12 @@ const logger = {
         const header = chalk.cyan('◆ LayerEdge Auto Bot');
 
         let formattedMessage = `${header} ${timestamp} ${levelTag} ${message}`;
-
+        
         if (value) {
             const formattedValue = typeof value === 'object' ? JSON.stringify(value) : value;
-            const valueStyle = level === 'error' ? chalk.red :
-                level === 'warn' ? chalk.yellow :
-                    chalk.green;
+            const valueStyle = level === 'error' ? chalk.red : 
+                             level === 'warn' ? chalk.yellow : 
+                             chalk.green;
             formattedMessage += ` ${valueStyle(formattedValue)}`;
         }
 
@@ -72,12 +72,12 @@ const logger = {
     verbose: (message, value = '') => logger.verbose && logger.log('verbose', message, value),
 
     progress(wallet, step, status) {
-        const progressStyle = status === 'success'
-            ? chalk.green('✔')
-            : status === 'failed'
-                ? chalk.red('✘')
-                : chalk.yellow('➤');
-
+        const progressStyle = status === 'success' 
+            ? chalk.green('✔') 
+            : status === 'failed' 
+            ? chalk.red('✘') 
+            : chalk.yellow('➤');
+        
         console.log(
             chalk.cyan('◆ LayerEdge Auto Bot'),
             chalk.gray(`[${new Date().toLocaleTimeString()}]`),
@@ -98,14 +98,14 @@ class RequestHandler {
             } catch (error) {
                 const isLastRetry = i === retries - 1;
                 const status = error.response?.status;
-
+                
                 if (status === 500) {
                     logger.error(`Server Error (500)`, `Attempt ${i + 1}/${retries}`, error);
                     if (isLastRetry) break;
-
+                    
                     const waitTime = backoffMs * Math.pow(1.5, i);
-                    logger.warn(`Waiting ${waitTime / 1000}s before retry...`);
-                    await delay(waitTime / 1000);
+                    logger.warn(`Waiting ${waitTime/1000}s before retry...`);
+                    await delay(waitTime/1000);
                     continue;
                 }
 
@@ -192,8 +192,8 @@ class LayerEdgeConnection {
         this.wallet = privateKey
             ? new Wallet(privateKey)
             : Wallet.createRandom();
-
-        logger.verbose(`Initialized LayerEdgeConnection`,
+            
+        logger.verbose(`Initialized LayerEdgeConnection`, 
             `Wallet: ${this.wallet.address}\nProxy: ${this.proxy || 'None'}`);
     }
 
@@ -208,7 +208,7 @@ class LayerEdgeConnection {
                 ...(config.headers || {})
             }
         };
-
+        
         return await RequestHandler.makeRequest(finalConfig, this.retryCount);
     }
 
@@ -330,57 +330,183 @@ class LayerEdgeConnection {
                 if (response.data.statusCode && response.data.statusCode === 405) {
                     const cooldownMatch = response.data.message.match(/after\s+([^!]+)!/);
                     const cooldownTime = cooldownMatch ? cooldownMatch[1].trim() : "unknown time";
-                    logger.warn(`Daily Check-in failed. Cooldown: ${cooldownTime}`);
-                    return;
+                    logger.info("⚠️ Daily Check-in Already Completed", `Come back after ${cooldownTime}`);
+                    return true;
+                } else {
+                    logger.info("✅ Daily Check-in Successful", response.data);
+                    return true;
                 }
-                logger.info("Successfully Claimed Points", response.data);
             } else {
-                logger.error("Failed to claim daily node points");
+                logger.error("❌ Daily Check-in Failed");
+                return false;
             }
         } catch (error) {
-            logger.error("Error during daily check-in", "", error);
+            logger.error("Error during daily check-in:", error);
+            return false;
+        }
+    }
+
+    async checkNodeStatus() {
+        const response = await this.makeRequest(
+            "get",
+            `https://referralapi.layeredge.io/api/light-node/node-status/${this.wallet.address}`
+        );
+
+        if (response && response.data && response.data.data.startTimestamp !== null) {
+            logger.info("Node Status Running", response.data);
+            return true;
+        } else {
+            logger.error("Node not running trying to start node...");
+            return false;
+        }
+    }
+
+    async checkNodePoints() {
+        const response = await this.makeRequest(
+            "get",
+            `https://referralapi.layeredge.io/api/referral/wallet-details/${this.wallet.address}`
+        );
+
+        if (response && response.data) {
+            logger.info(`${this.wallet.address} Total Points:`, response.data.data?.nodePoints || 0);
+            return true;
+        } else {
+            logger.error("Failed to check Total Points..");
+            return false;
+        }
+    }
+
+    async submitProof() {
+        try {
+            const timestamp = new Date().toISOString();
+            const message = `I am submitting a proof for LayerEdge at ${timestamp}`;
+            const signature = await this.wallet.signMessage(message);
+            
+            const proofData = {
+                proof: "GmEdgesss",
+                signature: signature,
+                message: message,
+                address: this.wallet.address
+            };
+
+            const config = {
+                data: proofData,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': '*/*'
+                }
+            };
+
+            const response = await this.makeRequest(
+                "post",
+                "https://dashboard.layeredge.io/api/send-proof",
+                config
+            );
+
+            if (response && response.data && response.data.success) {
+                logger.success("Proof submitted successfully", response.data.message);
+                return true;
+            } else {
+                logger.error("Failed to submit proof", response?.data);
+                return false;
+            }
+        } catch (error) {
+            logger.error("Error submitting proof", "", error);
+            return false;
+        }
+    }
+
+    async claimProofSubmissionPoints() {
+        try {
+            const timestamp = Date.now();
+            const message = `I am claiming my proof submission node points for ${this.wallet.address} at ${timestamp}`;
+            const sign = await this.wallet.signMessage(message);
+
+            const claimData = {
+                walletAddress: this.wallet.address,
+                timestamp: timestamp,
+                sign: sign
+            };
+
+            const config = {
+                data: claimData,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json, text/plain, */*'
+                }
+            };
+
+            const response = await this.makeRequest(
+                "post",
+                "https://referralapi.layeredge.io/api/task/proof-submission",
+                config
+            );
+
+            if (response && response.data && response.data.message === "proof submission task completed successfully") {
+                logger.success("Proof submission points claimed successfully");
+                return true;
+            } else {
+                logger.error("Failed to claim proof submission points", response?.data);
+                return false;
+            }
+        } catch (error) {
+            logger.error("Error claiming proof submission points", "", error);
+            return false;
+        }
+    }
+
+    async claimLightNodePoints() {
+        try {
+            const timestamp = Date.now();
+            const message = `I am claiming my light node run task node points for ${this.wallet.address} at ${timestamp}`;
+            const sign = await this.wallet.signMessage(message);
+
+            const claimData = {
+                walletAddress: this.wallet.address,
+                timestamp: timestamp,
+                sign: sign
+            };
+
+            const config = {
+                data: claimData,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json, text/plain, */*'
+                }
+            };
+
+            const response = await this.makeRequest(
+                "post",
+                "https://referralapi.layeredge.io/api/task/node-points",
+                config
+            );
+
+            if (response && response.data && response.data.message === "node points task completed successfully") {
+                logger.success("Light node points claimed successfully");
+                return true;
+            } else {
+                logger.error("Failed to claim light node points", response?.data);
+                return false;
+            }
+        } catch (error) {
+            logger.error("Error claiming light node points", "", error);
+            return false;
         }
     }
 }
 
+// Main Application
 async function readWallets() {
     try {
-        const walletsJson = await readFile('wallets.json');
-        const wallets = walletsJson.map(wallet => ({
-            privateKey: wallet.privateKey
-        }));
-
-        if (!wallets.length) {
-            logger.error("No wallets configured");
+        await fs.access("wallets.json");
+        const data = await fs.readFile("wallets.json", "utf-8");
+        return JSON.parse(data);
+    } catch (err) {
+        if (err.code === 'ENOENT') {
+            logger.info("No wallets found in wallets.json");
+            return [];
         }
-        return wallets;
-    } catch (error) {
-        logger.error("Error loading wallets.json", "", error);
-        return [];
-    }
-}
-
-async function processWalletsInChunks(wallets, chunkSize) {
-    const chunkedWallets = [];
-    for (let i = 0; i < wallets.length; i += chunkSize) {
-        chunkedWallets.push(wallets.slice(i, i + chunkSize));
-    }
-
-    for (const chunk of chunkedWallets) {
-        await Promise.all(chunk.map(async (walletData) => {
-            const connection = new LayerEdgeConnection(
-                null, 
-                walletData.privateKey 
-            );
-            const walletAddress = connection.wallet.address;
-
-            await connection.checkInvite();
-            await connection.registerWallet();
-            await connection.connectNode();
-            await connection.dailyCheckIn();
-            await connection.stopNode();
-            logger.success('Cycle Complete', walletAddress);
-        }));
+        throw err;
     }
 }
 
@@ -389,14 +515,7 @@ async function run() {
     logger.info('Starting Layer Edge Auto Bot', 'Initializing...');
     
     try {
-        let proxies = [];
-        
-        try {
-            proxies = await readFile('proxy.txt');
-        } catch (error) {
-            logger.warn('Proxy file not found', 'Running without proxy support');
-        }
-
+        const proxies = await readFile('proxy.txt');
         let wallets = await readWallets();
         
         if (proxies.length === 0) {
@@ -410,9 +529,54 @@ async function run() {
         logger.info('Configuration loaded', `Wallets: ${wallets.length}, Proxies: ${proxies.length}`);
 
         while (true) {
-            await processWalletsInChunks(wallets, 100); // Run 100 wallets concurrently
+            for (let i = 0; i < wallets.length; i++) {
+                const wallet = wallets[i];
+                const proxy = proxies[i % proxies.length] || null;
+                const { address, privateKey } = wallet;
+                
+                try {
+                    logger.verbose(`Processing wallet ${i + 1}/${wallets.length}`, address);
+                    const socket = new LayerEdgeConnection(proxy, privateKey);
+                    
+                    logger.progress(address, 'Wallet Processing Started', 'start');
+                    logger.info(`Wallet Details`, `Address: ${address}, Proxy: ${proxy || 'No Proxy'}`);
+
+                    logger.progress(address, 'Performing Daily Check-in', 'processing');
+                    await socket.dailyCheckIn();
+
+                    logger.progress(address, 'Submitting Proof', 'processing');
+                    await socket.submitProof();
+
+                    logger.progress(address, 'Claiming Proof Submission Points', 'processing');
+                    await socket.claimProofSubmissionPoints();
+
+                    logger.progress(address, 'Checking Node Status', 'processing');
+                    const isRunning = await socket.checkNodeStatus();
+
+                    if (isRunning) {
+                        logger.progress(address, 'Claiming Node Points', 'processing');
+                        await socket.stopNode();
+                    }
+
+                    logger.progress(address, 'Reconnecting Node', 'processing');
+                    await socket.connectNode();
+
+                    logger.progress(address, 'Claiming Light Node Points', 'processing');
+                    await socket.claimLightNodePoints();
+
+                    logger.progress(address, 'Checking Node Points', 'processing');
+                    await socket.checkNodePoints();
+
+                    logger.progress(address, 'Wallet Processing Complete', 'success');
+                } catch (error) {
+                    logger.error(`Failed processing wallet ${address}`, '', error);
+                    logger.progress(address, 'Wallet Processing Failed', 'failed');
+                    await delay(5);
+                }
+            }
+            
             logger.warn('Cycle Complete', 'Waiting 1 hour before next run...');
-            await delay(60 * 60); // Wait for 1 hour before the next run
+            await delay(60 * 60);
         }
     } catch (error) {
         logger.error('Fatal error occurred', '', error);
