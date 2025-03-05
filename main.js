@@ -147,6 +147,18 @@ async function readFile(pathFile) {
     }
 }
 
+// Updated function to read wallets from wallets.json
+async function readWallets() {
+    try {
+        const walletData = await fs.readFile('wallets.json', 'utf8');
+        const wallets = JSON.parse(walletData); // Parse the JSON data into an array of wallet objects
+        return wallets.filter(wallet => wallet.address && wallet.privateKey); // Filter out any invalid entries
+    } catch (error) {
+        logger.error(`Error reading wallets: ${error.message}`);
+        return [];
+    }
+}
+
 const newAgent = (proxy = null) => {
     if (proxy) {
         if (proxy.startsWith('http://')) {
