@@ -1,8 +1,8 @@
-const axios = require('axios');
-const { Wallet: EthersWallet } = require('ethers'); // Import Wallet from ethers.js (renaming to avoid conflict)
-const { newAgent } = require('some-proxy-agent-library'); // Placeholder for actual proxy agent module
-const logger = require('some-logging-library'); // Placeholder for actual logging library
-const RequestHandler = require('some-request-handler'); // Placeholder for actual request handler module
+import axios from 'axios';
+import { Wallet as EthersWallet } from 'ethers'; // Importing Wallet as EthersWallet to avoid conflict
+import { newAgent } from 'some-proxy-agent-library'; // Placeholder for actual proxy agent module
+import logger from 'some-logging-library'; // Placeholder for actual logging library
+import RequestHandler from 'some-request-handler'; // Placeholder for actual request handler module
 
 class LayerEdgeConnection {
     constructor(proxy = null, privateKey = null, refCode = "knYyWnsE") {
