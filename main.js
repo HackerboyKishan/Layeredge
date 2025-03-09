@@ -111,27 +111,27 @@ class LayerEdgeConnection {
     // Other methods like submitProof, claimProofSubmissionPoints, etc. will remain unchanged...
 }
 
-// Function to read wallet private keys from wallets.json
-function loadPrivateKeys() {
+// Function to read wallet private keys and addresses from wallets.json
+function loadWallets() {
     try {
         const data = fs.readFileSync('wallets.json', 'utf8');
         const parsedData = JSON.parse(data);
-        return parsedData.privateKeys || [];
+        return parsedData || [];
     } catch (error) {
         logger.error('Error reading wallets.json file', error);
         return [];
     }
 }
 
-// Run the bot for each private key
-async function runBotForEachPrivateKey(privateKeys) {
-    for (let privateKey of privateKeys) {
+// Run the bot for each wallet
+async function runBotForEachWallet(wallets) {
+    for (let wallet of wallets) {
         try {
-            // Create a LayerEdgeConnection with the current private key
-            const bot = new LayerEdgeConnection(null, privateKey);  // Pass null for proxy here
+            // Create a LayerEdgeConnection with the current wallet's private key
+            const bot = new LayerEdgeConnection(null, wallet.privateKey);  // Pass null for proxy here
             
             // Log the start of bot execution for each address
-            logger.info(`Starting bot execution for wallet: ${bot.wallet.address}`);
+            logger.info(`Starting bot execution for wallet: ${wallet.address}`);
             
             // Perform actions for the current wallet
             await bot.dailyCheckIn();
@@ -144,19 +144,19 @@ async function runBotForEachPrivateKey(privateKeys) {
             await bot.checkNodePoints();
             
             // Log the successful execution of actions
-            logger.info(`Bot execution completed for wallet: ${bot.wallet.address}`);
+            logger.info(`Bot execution completed for wallet: ${wallet.address}`);
         } catch (err) {
-            logger.error(`Bot execution failed for wallet: ${privateKey}`, err);
+            logger.error(`Bot execution failed for wallet: ${wallet.address}`, err);
         }
     }
 }
 
-// Load the private keys from wallets.json
-const privateKeys = loadPrivateKeys();
+// Load the wallets from wallets.json
+const wallets = loadWallets();
 
 // Start the bot for all wallets from wallets.json
-if (privateKeys.length > 0) {
-    runBotForEachPrivateKey(privateKeys);
+if (wallets.length > 0) {
+    runBotForEachWallet(wallets);
 } else {
-    logger.error('No private keys found in wallets.json');
+    logger.error('No wallets found in wallets.json');
 }
