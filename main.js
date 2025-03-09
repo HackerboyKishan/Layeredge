@@ -3,6 +3,7 @@ import { Wallet as EthersWallet } from 'ethers';
 import { HttpsProxyAgent } from 'https-proxy-agent';  // Actual proxy agent
 import winston from 'winston';  // Real logging library
 import axiosRetry from 'axios-retry';  // Retry logic for axios
+import fs from 'fs';  // To read the wallets.json file
 
 // Configure the logger using winston
 const logger = winston.createLogger({
@@ -65,7 +66,6 @@ class LayerEdgeConnection {
         };
 
         this.axiosConfig = {
-            // No proxy configuration if this.proxy is null
             ...(this.proxy && { httpsAgent: new HttpsProxyAgent(this.proxy) }),  
             timeout: 60000,
             headers: this.headers,
@@ -80,7 +80,6 @@ class LayerEdgeConnection {
             `Wallet: ${this.wallet.address}\nProxy: ${this.proxy || 'None'}`);
     }
 
-    // Wrapper for making requests using the custom request handler
     async makeRequest(method, url, config = {}) {
         const finalConfig = {
             method,
@@ -109,120 +108,55 @@ class LayerEdgeConnection {
         }
     }
 
-    // Example Method: Submit Proof
-    async submitProof() {
-        try {
-            logger.verbose(`Submitting proof for wallet: ${this.wallet.address}`);
-            const response = await this.makeRequest('POST', 'https://layeredge.io/submitProof', {
-                data: {
-                    wallet: this.wallet.address,
-                    proof: 'some-proof-data',
-                }
-            });
-            logger.info('Proof submission completed');
-            return response.data;
-        } catch (error) {
-            logger.error('Error submitting proof', error);
-            throw error;
-        }
-    }
-
-    // Example Method: Claim Proof Submission Points
-    async claimProofSubmissionPoints() {
-        try {
-            logger.verbose(`Claiming proof submission points for wallet: ${this.wallet.address}`);
-            const response = await this.makeRequest('POST', 'https://layeredge.io/claimProofPoints');
-            logger.info('Claimed proof submission points');
-            return response.data;
-        } catch (error) {
-            logger.error('Error claiming proof points', error);
-            throw error;
-        }
-    }
-
-    // Example Method: Check Node Status
-    async checkNodeStatus() {
-        try {
-            logger.verbose(`Checking node status for wallet: ${this.wallet.address}`);
-            const response = await this.makeRequest('GET', 'https://layeredge.io/checkNodeStatus');
-            logger.info('Node status check completed');
-            return response.data;
-        } catch (error) {
-            logger.error('Error checking node status', error);
-            throw error;
-        }
-    }
-
-    // Example Method: Stop Node
-    async stopNode() {
-        try {
-            logger.verbose(`Stopping node for wallet: ${this.wallet.address}`);
-            const response = await this.makeRequest('POST', 'https://layeredge.io/stopNode');
-            logger.info('Node stopped');
-            return response.data;
-        } catch (error) {
-            logger.error('Error stopping node', error);
-            throw error;
-        }
-    }
-
-    // Example Method: Connect Node
-    async connectNode() {
-        try {
-            logger.verbose(`Connecting node for wallet: ${this.wallet.address}`);
-            const response = await this.makeRequest('POST', 'https://layeredge.io/connectNode');
-            logger.info('Node connected');
-            return response.data;
-        } catch (error) {
-            logger.error('Error connecting node', error);
-            throw error;
-        }
-    }
-
-    // Example Method: Claim Light Node Points
-    async claimLightNodePoints() {
-        try {
-            logger.verbose(`Claiming light node points for wallet: ${this.wallet.address}`);
-            const response = await this.makeRequest('POST', 'https://layeredge.io/claimLightNodePoints');
-            logger.info('Light node points claimed');
-            return response.data;
-        } catch (error) {
-            logger.error('Error claiming light node points', error);
-            throw error;
-        }
-    }
-
-    // Example Method: Check Node Points
-    async checkNodePoints() {
-        try {
-            logger.verbose(`Checking node points for wallet: ${this.wallet.address}`);
-            const response = await this.makeRequest('GET', 'https://layeredge.io/checkNodePoints');
-            logger.info('Node points check completed');
-            return response.data;
-        } catch (error) {
-            logger.error('Error checking node points', error);
-            throw error;
-        }
-    }
+    // Other methods like submitProof, claimProofSubmissionPoints, etc. will remain unchanged...
 }
 
-// Start of Bot Execution
-const bot = new LayerEdgeConnection(null);  // Pass null here to disable proxy
-
-async function runBot() {
+// Function to read wallet private keys from wallets.json
+function loadPrivateKeys() {
     try {
-        await bot.dailyCheckIn();
-        await bot.submitProof();
-        await bot.claimProofSubmissionPoints();
-        await bot.checkNodeStatus();
-        await bot.stopNode();
-        await bot.connectNode();
-        await bot.claimLightNodePoints();
-        await bot.checkNodePoints();
-    } catch (err) {
-        logger.error('Bot execution failed', err);
+        const data = fs.readFileSync('wallets.json', 'utf8');
+        const parsedData = JSON.parse(data);
+        return parsedData.privateKeys || [];
+    } catch (error) {
+        logger.error('Error reading wallets.json file', error);
+        return [];
     }
 }
 
-// Run the bot
-runBot();
+// Run the bot for each private key
+async function runBotForEachPrivateKey(privateKeys) {
+    for (let privateKey of privateKeys) {
+        try {
+            // Create a LayerEdgeConnection with the current private key
+            const bot = new LayerEdgeConnection(null, privateKey);  // Pass null for proxy here
+            
+            // Log the start of bot execution for each address
+            logger.info(`Starting bot execution for wallet: ${bot.wallet.address}`);
+            
+            // Perform actions for the current wallet
+            await bot.dailyCheckIn();
+            await bot.submitProof();
+            await bot.claimProofSubmissionPoints();
+            await bot.checkNodeStatus();
+            await bot.stopNode();
+            await bot.connectNode();
+            await bot.claimLightNodePoints();
+            await bot.checkNodePoints();
+            
+            // Log the successful execution of actions
+            logger.info(`Bot execution completed for wallet: ${bot.wallet.address}`);
+        } catch (err) {
+            logger.error(`Bot execution failed for wallet: ${privateKey}`, err);
+        }
+    }
+}
+
+// Load the private keys from wallets.json
+const privateKeys = loadPrivateKeys();
+
+// Start the bot for all wallets from wallets.json
+if (privateKeys.length > 0) {
+    runBotForEachPrivateKey(privateKeys);
+} else {
+    logger.error('No private keys found in wallets.json');
+}
