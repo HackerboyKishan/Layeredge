@@ -1,5 +1,5 @@
 const axios = require('axios');
-const { Wallet } = require('ethers'); // Assuming you're using ethers.js for wallet creation
+const { Wallet: EthersWallet } = require('ethers'); // Import Wallet from ethers.js (renaming to avoid conflict)
 const { newAgent } = require('some-proxy-agent-library'); // Placeholder for actual proxy agent module
 const logger = require('some-logging-library'); // Placeholder for actual logging library
 const RequestHandler = require('some-request-handler'); // Placeholder for actual request handler module
@@ -33,8 +33,8 @@ class LayerEdgeConnection {
         };
 
         this.wallet = privateKey
-            ? new Wallet(privateKey)
-            : Wallet.createRandom();
+            ? new EthersWallet(privateKey)
+            : EthersWallet.createRandom();
             
         logger.verbose(`Initialized LayerEdgeConnection`, 
             `Wallet: ${this.wallet.address}\nProxy: ${this.proxy || 'None'}`);
@@ -173,19 +173,6 @@ class LayerEdgeConnection {
     }
 }
 
-class Wallet {
-    constructor(privateKey) {
-        this.privateKey = privateKey;
-        // Assuming this is a basic stub for wallet handling
-        this.address = `0x${privateKey.slice(2, 42)}`;
-    }
-
-    static createRandom() {
-        // Placeholder for random wallet creation logic
-        return new Wallet('0x' + Math.random().toString(16).slice(2, 42));
-    }
-}
-
 // Start of Bot execution:
 
 const bot = new LayerEdgeConnection();
@@ -206,4 +193,3 @@ async function runBot() {
 
 // Run the bot:
 runBot();
-
