@@ -1,8 +1,20 @@
 import axios from 'axios';
-import { Wallet as EthersWallet } from 'ethers'; // Importing Wallet as EthersWallet to avoid conflict
-import { HttpsProxyAgent } from 'https-proxy-agent'; // Importing the actual proxy agent
-import logger from 'some-logging-library'; // Placeholder for actual logging library
+import { Wallet as EthersWallet } from 'ethers';
+import { HttpsProxyAgent } from 'https-proxy-agent'; // Real proxy agent library
+import winston from 'winston'; // Importing winston for logging
 import RequestHandler from 'some-request-handler'; // Placeholder for actual request handler module
+
+// Configure the logger
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.combine(
+    winston.format.colorize(),
+    winston.format.simple()
+  ),
+  transports: [
+    new winston.transports.Console()
+  ]
+});
 
 class LayerEdgeConnection {
     constructor(proxy = null, privateKey = null, refCode = "knYyWnsE") {
@@ -26,7 +38,7 @@ class LayerEdgeConnection {
         };
 
         this.axiosConfig = {
-            ...(this.proxy && { httpsAgent: new HttpsProxyAgent(this.proxy) }),  // Use the actual proxy agent
+            ...(this.proxy && { httpsAgent: new HttpsProxyAgent(this.proxy) }),
             timeout: 60000,
             headers: this.headers,
             validateStatus: (status) => status < 500
