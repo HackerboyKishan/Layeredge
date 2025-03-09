@@ -1,4 +1,4 @@
-import fs from 'fs/promises';
+import fs from 'fs/promises'; // Correctly import fs.promises for file system operations
 import axios from "axios";
 import chalk from "chalk";
 import { HttpsProxyAgent } from 'https-proxy-agent';
@@ -8,7 +8,7 @@ import banner from './utils/banner.js';
 
 const logger = {
     verbose: true,
-    
+
     _formatTimestamp() {
         return chalk.gray(`[${new Date().toLocaleTimeString()}]`);
     },
@@ -212,7 +212,17 @@ class LayerEdgeConnection {
     // Other methods...
 }
 
-// Main Application
+// Function to read file using fs
+async function readFile(filePath) {
+    try {
+        const data = await fs.readFile(filePath, 'utf-8');
+        return data.split('\n').filter(line => line.trim() !== ''); // Split by newline and remove empty lines
+    } catch (error) {
+        logger.error('Error reading file', filePath, error);
+        return [];
+    }
+}
+
 async function readWallets() {
     try {
         await fs.access("wallets.json");
