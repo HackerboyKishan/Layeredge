@@ -65,7 +65,8 @@ class LayerEdgeConnection {
         };
 
         this.axiosConfig = {
-            ...(this.proxy && { httpsAgent: new HttpsProxyAgent(this.proxy) }),  // Use the proxy agent
+            // No proxy configuration if this.proxy is null
+            ...(this.proxy && { httpsAgent: new HttpsProxyAgent(this.proxy) }),  
             timeout: 60000,
             headers: this.headers,
             validateStatus: (status) => status < 500
@@ -206,7 +207,7 @@ class LayerEdgeConnection {
 }
 
 // Start of Bot Execution
-const bot = new LayerEdgeConnection('http://proxy-server:port');  // Pass the proxy URL here
+const bot = new LayerEdgeConnection(null);  // Pass null here to disable proxy
 
 async function runBot() {
     try {
